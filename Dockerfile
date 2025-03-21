@@ -12,4 +12,4 @@ COPY . .
 # Build project
 RUN cmake -B build && cmake --build build
 
-CMD ["./build/my-cpp-app"]
+CMD ["./build/mtk5586hal1"]
