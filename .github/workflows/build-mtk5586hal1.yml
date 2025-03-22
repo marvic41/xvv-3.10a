@@ -10,28 +10,27 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Build Docker Image
-        run: |
-          docker build -t mtk5586hal1 .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       
-      - name: Run Docker Container to verify
-        run: |
-          docker run --rm mtk5586hal1
-      
-      - name: Login to Docker Registry
+      - name: Log in to GitHub Container Registry
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v2
         with:
-          registry: myjfrogrepo.jfrog.io
-          username: ${{ secrets.ARTIFACTORY_USER }}
-          password: ${{ secrets.ARTIFACTORY_PASS }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Push Docker Image
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          docker tag mtk5586hal1 myjfrogrepo.jfrog.io/docker-local/mtk5586hal1:latest
-          docker push myjfrogrepo.jfrog.io/docker-local/mtk5586hal1:latest
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/${{ github.repository_owner }}/mtk5586hal1:latest
