@@ -7,10 +7,11 @@ on:
   pull_request:
     branches:
       - main
-      
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,12 +21,16 @@ jobs:
           docker build -t mtk5586hal1 .
       
       - name: Verify Docker Image Exists
-        run: docker images
+        run: docker images | grep mtk5586hal1 || (echo "Image not found!" && exit 1)
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Login to JFrog Artifactory
         run: |
           echo "$ARTIFACTORY_PASS" | docker login myjfrogrepo.jfrog.io -u "$ARTIFACTORY_USER" --password-stdin
@@ -33,7 +38,7 @@ jobs:
           ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
           ARTIFACTORY_PASS: ${{ secrets.ARTIFACTORY_PASS }}
 
-      - name: Push Docker Image to JFrog
+      - name: Tag and Push Docker Image to JFrog
         run: |
           docker tag mtk5586hal1 myjfrogrepo.jfrog.io/myrepo/mtk5586hal1:latest
           docker push myjfrogrepo.jfrog.io/myrepo/mtk5586hal1:latest
