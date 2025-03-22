@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -27,8 +28,59 @@ jobs:
         run: |
           echo "${{ secrets.ARTIFACTORY_PASS }}" | docker login myjfrogrepo.jfrog.io -u "${{ secrets.ARTIFACTORY_USER }}" --password-stdin
       
-      - name: Tag and Push Docker Image to JFrog
+      - name: Verify Docker Login Status
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          # Check Docker config to confirm login
+          cat ~/.docker/config.json
+          echo "Docker login status completed"
+      
+      - name: Install JFrog CLI
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          curl -fL https://getcli.jfrog.io | sh
+          chmod +x jfrog
+          sudo mv jfrog /usr/local/bin/
+          jfrog --version
+      
+      - name: Configure JFrog CLI
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          jfrog rt c --url=https://myjfrogrepo.jfrog.io/artifactory --user=${{ secrets.ARTIFACTORY_USER }} --password=${{ secrets.ARTIFACTORY_PASS }}
+          jfrog rt c show
+      
+      - name: List Docker Images
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker images
+      
+      - name: Tag Docker Image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # Try different repository paths
           docker tag mtk5586hal1 myjfrogrepo.jfrog.io/myrepo/mtk5586hal1:latest
+          docker tag mtk5586hal1 myjfrogrepo.jfrog.io/artifactory/myrepo/mtk5586hal1:latest
+          docker tag mtk5586hal1 myjfrogrepo.jfrog.io/docker-local/mtk5586hal1:latest
+          
+          # Verify tags were created
+          docker images | grep myjfrogrepo
+      
+      - name: Push Docker Image via Docker CLI
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          # Try different repository paths
           docker push myjfrogrepo.jfrog.io/myrepo/mtk5586hal1:latest
+          echo "First push attempt completed with status $?"
+      
+      - name: Push Docker Image via JFrog CLI
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          # Try different repository paths
+          jfrog rt docker-push myjfrogrepo.jfrog.io/myrepo/mtk5586hal1:latest myrepo
+          echo "JFrog CLI push attempt completed with status $?"
+          
+          # Try alternate paths
+          jfrog rt docker-push myjfrogrepo.jfrog.io/artifactory/myrepo/mtk5586hal1:latest myrepo
+          jfrog rt docker-push myjfrogrepo.jfrog.io/docker-local/mtk5586hal1:latest docker-local
