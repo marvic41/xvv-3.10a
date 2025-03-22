@@ -1,5 +1,4 @@
 name: Build & Deploy mtk5586hal1
-
 on:
   push:
     branches:
@@ -7,38 +6,29 @@ on:
   pull_request:
     branches:
       - main
-
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      
       - name: Build Docker Image
         run: |
           docker build -t mtk5586hal1 .
       
-      - name: Verify Docker Image Exists
-        run: docker images | grep mtk5586hal1 || (echo "Image not found!" && exit 1)
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Login to JFrog Artifactory
+      - name: Run Docker Container to verify
         run: |
-          echo "$ARTIFACTORY_PASS" | docker login myjfrogrepo.jfrog.io -u "$ARTIFACTORY_USER" --password-stdin
-        env:
-          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
-          ARTIFACTORY_PASS: ${{ secrets.ARTIFACTORY_PASS }}
-
+          docker run --rm mtk5586hal1
+      
+      # Only run the deploy steps on pushes to main
+      - name: Login to JFrog Artifactory
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.ARTIFACTORY_PASS }}" | docker login myjfrogrepo.jfrog.io -u "${{ secrets.ARTIFACTORY_USER }}" --password-stdin
+      
       - name: Tag and Push Docker Image to JFrog
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           docker tag mtk5586hal1 myjfrogrepo.jfrog.io/myrepo/mtk5586hal1:latest
           docker push myjfrogrepo.jfrog.io/myrepo/mtk5586hal1:latest
